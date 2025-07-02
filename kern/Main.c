@@ -109,12 +109,10 @@ int module_stop(SceSize args, void *argp) {
 	term_compat_patch();
 	term_ec_patch();
 
-	for(int i = 0;i < 3;i++){
-		taiHookReleaseForKernel(mem_hooks[0], ksceKernelAllocMemBlockRef);
-		taiHookReleaseForKernel(mem_hooks[1], ksceKernelFreeMemBlockRef);
-		taiHookReleaseForKernel(mem_hooks[2], ksceKernelUnmapMemBlockRef);
-		taiHookReleaseForKernel(mem_hooks[3], SceGrabForDriver_E9C25A28_ref);
-	}
+	taiHookReleaseForKernel(mem_hooks[0], ksceKernelAllocMemBlockRef);
+	taiHookReleaseForKernel(mem_hooks[1], ksceKernelFreeMemBlockRef);
+	taiHookReleaseForKernel(mem_hooks[2], ksceKernelUnmapMemBlockRef);
+	taiHookReleaseForKernel(mem_hooks[3], SceGrabForDriver_E9C25A28_ref);
 
 	return SCE_KERNEL_STOP_SUCCESS;
 }
