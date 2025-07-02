@@ -34,7 +34,7 @@ add_executable(NoPspEmuDrm_user
 )
 
 target_link_libraries(NoPspEmuDrm_user
-	taiHEN_stub
+	taihen_stub
 	SceLibKernel_stub
 	SceCompat_stub
 	SceLibc_stub_weak
