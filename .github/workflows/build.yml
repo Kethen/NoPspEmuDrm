@@ -1,0 +1,46 @@
+name: Build package
+
+on: [ push, pull_request, workflow_dispatch ]
+
+jobs:
+  build_pkg:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set env vars
+      run: |
+        echo "sha_name=$(echo ${GITHUB_SHA} | cut -c1-8)" >> $GITHUB_ENV
+        echo "VITASDK=${GITHUB_WORKSPACE}/vitasdk" >> $GITHUB_ENV
+        echo "${GITHUB_WORKSPACE}/vitasdk/bin" >> $GITHUB_PATH
+
+    - name: Install packages
+      run: |
+        export DEBIAN_FRONTEND=noninteractive; sudo apt update; sudo apt install -y curl make git-core cmake python2 python3 sudo wget bzip2 xz-utils libreadline8 libusb-0.1-4 tmux libmpc3 mono-devel
+        export PATH=$VITASDK/bin:$PATH; git clone https://github.com/vitasdk/vdpm; cd vdpm; ./bootstrap-vitasdk.sh; ./install-all.sh
+
+    - name: Build
+      run: |
+        mkdir -p kernel_build
+        cd kernel_build
+        cmake ../kern
+        make
+        cp NoPspEmuDrm_kern.skprx ../
+        cd ..
+        mkdir -p user_build
+        cd user_build
+        cmake ../user
+        make
+        cp NoPspEmuDrm_user.suprx ../
+        cd ..
+
+    - name: Push package artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: NoPspEmuDrm_${{ env.sha_name }}
+        path: |
+           NoPspEmuDrm_kern.skprx
+           NoPspEmuDrm_user.suprx
+        if-no-files-found: error
