@@ -55,7 +55,7 @@ static SceUID extra_1_blockid = -1;
 static SceUID extra_2_blockid = -1;
 static SceUID extra_3_blockid = -1;
 static void* extra_3_addr = NULL;
-static void* extra_3_addr_mapped;
+static void* extra_3_addr_mapped = NULL;
 
 static SceUID mem_hooks[4];
 
@@ -107,8 +107,10 @@ static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlock
 		#endif
 	}
 
-	if (addr >= 0x20000000 && addr < 0x27000000){
-		log("%s: game cdram alloc %s with size %d type 0x%x, 0x%x 0x%x\n", __func__, name, size, type, addr, blockid);
+	if (optp != NULL){
+		log("%s: alloc %s with size %d type 0x%x attr 0x%x pid 0x%x, 0x%x 0x%x\n", __func__, name, size, type, optp->attr, optp->pid, addr, blockid);
+	}else{
+		log("%s: alloc %s with size %d type 0x%x, 0x%x 0x%x\n", __func__, name, size, type, addr, blockid);
 	}
 
 	return blockid;
@@ -120,13 +122,15 @@ static int ksceKernelFreeMemBlockPatched(SceUID uid) {
 		return 0;
 	}
 
+	SceUID extra_2_blockid_cpy = -1;
 	if (uid == extra_2_blockid){
+		extra_2_blockid_cpy = extra_2_blockid;
 		extra_2_blockid = -1;
 	}
 
 	int res = TAI_CONTINUE(int, ksceKernelFreeMemBlockRef, uid);
 
-	if (uid == extra_2_blockid) {
+	if (uid == extra_2_blockid_cpy) {
 		ksceKernelFreeMemBlock(extra_1_blockid);
 		extra_1_blockid = -1;
 
@@ -135,6 +139,7 @@ static int ksceKernelFreeMemBlockPatched(SceUID uid) {
 			ksceKernelFreeMemBlock(extra_3_blockid);
 			extra_3_blockid = -1;
 			extra_3_addr = NULL;
+			extra_3_addr_mapped = NULL;
 			log("%s: released extra_3\n", __func__);
 		}
 	}
@@ -156,13 +161,13 @@ static int SceGrabForDriver_E9C25A28_patched(int unk, uint32_t paddr) {
 
 	#if 0
 	if (unk == 3 && extra_3_addr != NULL){
-		log("%s: overridng bank 3 address 0x%x to 0x%x\n", __func__, paddr, extra_3_addr);
-		paddr = extra_3_addr;
+		log("%s: overridng bank 3 address 0x%x to 0x%x\n", __func__, paddr, extra_3_addr + 1);
+		paddr = extra_3_addr + 1;
 	}
 	#else
 	if (unk == 3 && extra_3_addr != NULL){
-		int result = TAI_CONTINUE(int, SceGrabForDriver_E9C25A28_ref, 4, extra_3_addr);
-		log("%s: bank 4, 0x%x\n", __func__, result);
+		int result = TAI_CONTINUE(int, SceGrabForDriver_E9C25A28_ref, 4, extra_3_addr + 1);
+		log("%s: setting bank 4 to 0x%x, 0x%x\n", __func__, extra_3_addr + 1, result);
 	}
 	#endif
 
@@ -185,7 +190,7 @@ int psp_mem_inspector(unsigned int args, void *argc){
 		log("%s: bank 3 + 16MB: 0x%x\n", __func__, *(uint32_t*)0x24000000);
 		if (extra_3_addr != NULL){
 			uint32_t val = 0;
-			ksceDmacMemcpy(&val, extra_3_addr, sizeof(val));
+			ksceKernelCopyFromUser(&val, extra_3_addr_mapped, sizeof(val));
 			log("%s: bank 4: 0x%x\n", __func__, val);
 		}
 	}
