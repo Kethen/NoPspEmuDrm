@@ -47,6 +47,7 @@
 #include <taihen.h>
 #include <psp2kern/kernel/sysmem.h>
 
+#define LOGGING_ENABLED 1
 #include "Log.h"
 
 static SceUID extra_1_blockid = -1;
@@ -58,6 +59,11 @@ static tai_hook_ref_t ksceKernelFreeMemBlockRef;
 static tai_hook_ref_t ksceKernelUnmapMemBlockRef;
 static tai_hook_ref_t SceGrabForDriver_E9C25A28_ref;
 
+int cached_addr_stored = 0;
+void *cached_addr[3];
+int uncached_addr_stored = 0;
+void *uncached_addr[3];
+
 static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlockType type, int size, SceKernelAllocMemBlockKernelOpt *optp) {
 	SceUID blockid = TAI_CONTINUE(SceUID, ksceKernelAllocMemBlockRef, name, type, size, optp);
 
@@ -68,6 +74,28 @@ static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlock
 		extra_1_blockid = blockid;
 	} else if (addr == 0x24000000) {
 		extra_2_blockid = blockid;
+	}
+
+	if (optp != NULL){
+		log("%s: allocate name %s type 0x%x size %d paddr 0x%x attr 0x%x, 0x%x/0x%x\n", __func__, name, type, size, optp->paddr, optp->attr, addr, blockid);
+	}else{
+		log("%s: allocate name %s type 0x%x size %d, 0x%d/0x%d\n", __func__, name, type, size, addr, blockid);
+	}
+
+	if (strcmp(name, "SceCompatUncached") == 0){
+		uncached_addr[uncached_addr_stored] = addr;
+		uncached_addr_stored++;
+		if (uncached_addr_stored == 3){
+			uncached_addr_stored = 0;
+		}
+	}
+
+	if (strcmp(name, "SceCompatCached") == 0){
+		cached_addr[cached_addr_stored] = addr;
+		cached_addr_stored++;
+		if (cached_addr_stored == 3){
+			cached_addr_stored = 0;
+		}
 	}
 
 	return blockid;

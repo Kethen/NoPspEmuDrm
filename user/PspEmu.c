@@ -224,13 +224,13 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 	sceIoGetstatHook = taiHookFunctionImport(&sceIoGetstatRef, "ScePspemu", 0xCAE9ACE6, 0xBCA5B623, sceIoGetstatPatched);
 
 	// Adjust RAM size the way adrenaline did
-	uint32_t cmp_a4_3C00000 = 0x7F70F1B3;
+	uint32_t cmp_a4_3C00000 = 0x6fe0F1B3;
 	ram_patches[0] = taiInjectData(tai_info.modid, 0, 0x6394, &cmp_a4_3C00000, sizeof(cmp_a4_3C00000));
 
-	uint32_t cmp_v2_3C00000 = 0x7F70F1B5;
+	uint32_t cmp_v2_3C00000 = 0x6fe0F1B5;
 	ram_patches[1] = taiInjectData(tai_info.modid, 0, 0x6434, &cmp_v2_3C00000, sizeof(cmp_v2_3C00000));
 
-	uint32_t cmp_a3_3C00000 = 0x7F70F1B2;
+	uint32_t cmp_a3_3C00000 = 0x6fe0F1B2;
 	ram_patches[2] = taiInjectData(tai_info.modid, 0, 0x6534, &cmp_a3_3C00000, sizeof(cmp_a3_3C00000));
 
 	return SCE_KERNEL_START_SUCCESS;
