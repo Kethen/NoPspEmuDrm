@@ -185,6 +185,8 @@ int psp_mem_inspector(unsigned int args, void *argc){
 			log("%s: psp memory not alocated\n", __func__);
 			continue;
 		}
+		log("%s: bank 0: 0x%x\n", __func__, *(uint32_t*)0x20000000);
+		log("%s: bank 1: 0x%x\n", __func__, *(uint32_t*)0x21000000);
 		log("%s: bank 2: 0x%x\n", __func__, *(uint32_t*)0x22000000);
 		log("%s: bank 3: 0x%x\n", __func__, *(uint32_t*)0x23000000);
 		log("%s: bank 3 + 16MB: 0x%x\n", __func__, *(uint32_t*)0x24000000);
