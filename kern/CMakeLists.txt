@@ -23,6 +23,7 @@ add_executable(${PROJECT_NAME}
   RifPatch.c
   CompatPatch.c
   EbootSigPatch.c
+  HighMem.c
 )
 
 include_directories(${CMAKE_SOURCE_DIR}/user)
