@@ -1,3 +1,48 @@
+// NoPspEmuDrm 
+// Created by Li, based on NoNpDrm kernel plugin
+
+// highmem routines imported from Adrenaline
+
+// below is the copyright notice for the original NoNpDrm :
+
+/*
+  NoNpDrm Plugin
+  Copyright (C) 2017-2018, TheFloW
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+// below is the copyright notice for the original Adrenaline :
+
+/*
+  Adrenaline
+  Copyright (C) 2016-2018, TheFloW
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <vitasdkkern.h>
 #include <taihen.h>
 #include <psp2kern/kernel/sysmem.h>
@@ -13,6 +58,14 @@ static tai_hook_ref_t ksceKernelAllocMemBlockRef;
 static tai_hook_ref_t ksceKernelFreeMemBlockRef;
 static tai_hook_ref_t ksceKernelUnmapMemBlockRef;
 static tai_hook_ref_t SceGrabForDriver_E9C25A28_ref;
+
+// Array of hook references for proper release
+static tai_hook_ref_t* hook_refs[4] = {
+    &ksceKernelAllocMemBlockRef,
+    &ksceKernelFreeMemBlockRef,
+    &ksceKernelUnmapMemBlockRef,
+    &SceGrabForDriver_E9C25A28_ref
+};
 
 // Patch for memory block allocation: track special blocks by address
 static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlockType type, int size, SceKernelAllocMemBlockKernelOpt *optp) {
@@ -102,7 +155,7 @@ fail:
     // Release any hooks that were installed before failure
     for (i = 0; i < 4; i++) {
         if (mem_hooks[i] >= 0) {
-            taiHookReleaseForKernel(mem_hooks[i], NULL);
+            taiHookReleaseForKernel(mem_hooks[i], *hook_refs[i]);
             mem_hooks[i] = -1;
         }
     }
@@ -113,7 +166,7 @@ fail:
 void term_highmem() {
     for (int i = 0; i < 4; i++) {
         if (mem_hooks[i] >= 0) {
-            taiHookReleaseForKernel(mem_hooks[i], NULL);
+            taiHookReleaseForKernel(mem_hooks[i], *hook_refs[i]);
             mem_hooks[i] = -1;
         }
     }
