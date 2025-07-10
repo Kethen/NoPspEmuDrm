@@ -63,8 +63,24 @@ int cached_addr_stored = 0;
 void *cached_addr[3];
 int uncached_addr_stored = 0;
 void *uncached_addr[3];
+int cdram_addr_stored = 0;
+void *cdram_addr[3];
 
 static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlockType type, int size, SceKernelAllocMemBlockKernelOpt *optp) {
+	#define ENLARGE_ALLOC(_name, _counter) { \
+		if (strcmp(name, _name) == 0 && _counter == 2){ \
+			int _new_size = size + 1024 * 1024 * 4; \
+			log("%s: expanding #%d %s from %d to %d\n", __func__, _counter, name, size, _new_size); \
+			size = _new_size; \
+		} \
+	}
+
+	ENLARGE_ALLOC("SceCompatCached", cached_addr_stored);
+	ENLARGE_ALLOC("SceCompatUncached", uncached_addr_stored);
+	ENLARGE_ALLOC("SceCompatCdram", cdram_addr_stored);
+
+	#undef ENLARGE_ALLOC
+
 	SceUID blockid = TAI_CONTINUE(SceUID, ksceKernelAllocMemBlockRef, name, type, size, optp);
 
 	uint32_t addr;
@@ -82,21 +98,21 @@ static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlock
 		log("%s: allocate name %s type 0x%x size %d, 0x%d/0x%d\n", __func__, name, type, size, addr, blockid);
 	}
 
-	if (strcmp(name, "SceCompatUncached") == 0){
-		uncached_addr[uncached_addr_stored] = addr;
-		uncached_addr_stored++;
-		if (uncached_addr_stored == 3){
-			uncached_addr_stored = 0;
-		}
+	#define SAVE_ADDR(_name, _array, _counter) { \
+		if (strcmp(name, _name) == 0){ \
+			_array[_counter] = addr; \
+			_counter++; \
+			if (_counter == 3){ \
+				_counter = 3; \
+			} \
+		} \
 	}
 
-	if (strcmp(name, "SceCompatCached") == 0){
-		cached_addr[cached_addr_stored] = addr;
-		cached_addr_stored++;
-		if (cached_addr_stored == 3){
-			cached_addr_stored = 0;
-		}
-	}
+	SAVE_ADDR("SceCompatCached", cached_addr, cached_addr_stored);
+	SAVE_ADDR("SceCompatUncached", uncached_addr, uncached_addr_stored);
+	SAVE_ADDR("SceCompatCdram", cdram_addr, cdram_addr_stored);
+
+	#undef SAVE_ADDR
 
 	return blockid;
 }
@@ -131,7 +147,15 @@ static int SceGrabForDriver_E9C25A28_patched(int unk, uint32_t paddr) {
 		paddr = 0x22000001;
 	}
 
-	return TAI_CONTINUE(int, SceGrabForDriver_E9C25A28_ref, unk, paddr);
+	int result = TAI_CONTINUE(int, SceGrabForDriver_E9C25A28_ref, unk, paddr);
+
+	if (unk == 3){
+		int ret_4 = TAI_CONTINUE(int, SceGrabForDriver_E9C25A28_ref, 4, 0x24000001);
+		int ret_5 = TAI_CONTINUE(int, SceGrabForDriver_E9C25A28_ref, 5, 0x25000001);
+		log("%s: trying to add extra banks 4 and 5, 0x%x 0x%x\n", __func__, ret_4, ret_5);
+	}
+
+	return result;
 }
 
 void init_highmem(){
