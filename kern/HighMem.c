@@ -103,7 +103,7 @@ static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlock
 			_array[_counter] = addr; \
 			_counter++; \
 			if (_counter == 3){ \
-				_counter = 3; \
+				_counter = 0; \
 			} \
 		} \
 	}
