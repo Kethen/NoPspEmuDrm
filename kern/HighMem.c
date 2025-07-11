@@ -179,12 +179,23 @@ static int psp_mem_inspector(unsigned int args, void *argc){
 			log("%s: bank %d: 0x%x\n", __func__, _num, _val); \
 		}
 
-		LOG_BANK(0, 0x20000000);
-		LOG_BANK(1, 0x21000000);
-		LOG_BANK(2, 0x22000000);
-		LOG_BANK(3, 0x23000000);
-		LOG_BANK(4, 0x24000000);
-		LOG_BANK(5, 0x25000000);
+		LOG_BANK(0, 0x21000000);
+		LOG_BANK(1, 0x22000000);
+		LOG_BANK(2, 0x23000000);
+		LOG_BANK(3, 0x24000000);
+
+
+		#define LOG_ADDR(_addr) { \
+			uint32_t _addr_test; \
+			ksceKernelVAtoPA(_addr, &_addr_test); \
+			log("%s: ksceKernelVAtoPA 0x%08x -> 0x%08x\n", __func__, _addr, _addr_test); \
+		}
+
+		LOG_ADDR(0x20000000);
+		LOG_ADDR(0x21000000);
+		LOG_ADDR(0x22000000);
+		LOG_ADDR(0x23000000);
+		LOG_ADDR(0x24000000);
 	}
 	inspect_thread_state = -1;
 }
