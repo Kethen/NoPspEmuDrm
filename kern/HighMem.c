@@ -119,8 +119,13 @@ static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlock
 
 static int ksceKernelFreeMemBlockPatched(SceUID uid) {
 	if (uid == extra_1_blockid){
+		#if 1
 		log("%s: blocked releasing of extra_1\n", __func__);
 		return 0;
+		#else
+		log("%s: TEST releasing extra_1\n", __func__);
+		extra_1_blockid = -1;
+		#endif
 	}
 
 	int res = TAI_CONTINUE(int, ksceKernelFreeMemBlockRef, uid);
@@ -158,11 +163,49 @@ static int SceGrabForDriver_E9C25A28_patched(int unk, uint32_t paddr) {
 	return result;
 }
 
+static SceUID inspect_thread = -1;
+static int inspect_thread_state = 0;
+static int psp_mem_inspector(unsigned int args, void *argc){
+	while(inspect_thread_state == 1){
+		ksceKernelDelayThread(1000000 * 5);
+		if (extra_2_blockid < 0){
+			log("%s: psp memory not alocated\n", __func__);
+			continue;
+		}
+
+		#define LOG_BANK(_num, _addr){ \
+			uint32_t _val = 0; \
+			ksceDmacMemcpy(&_val, _addr, sizeof(uint32_t)); \
+			log("%s: bank %d: 0x%x\n", __func__, _num, _val); \
+		}
+
+		LOG_BANK(0, 0x20000000);
+		LOG_BANK(1, 0x21000000);
+		LOG_BANK(2, 0x22000000);
+		LOG_BANK(3, 0x23000000);
+		LOG_BANK(4, 0x24000000);
+		LOG_BANK(5, 0x25000000);
+	}
+	inspect_thread_state = -1;
+}
+
 void init_highmem(){
 	mem_hooks[0] = taiHookFunctionImportForKernel(KERNEL_PID, &ksceKernelAllocMemBlockRef, "SceCompat", 0x6F25E18A, 0xC94850C9, ksceKernelAllocMemBlockPatched);
 	mem_hooks[1] = taiHookFunctionImportForKernel(KERNEL_PID, &ksceKernelFreeMemBlockRef, "SceCompat", 0x6F25E18A, 0x009E1C61, ksceKernelFreeMemBlockPatched);
 	mem_hooks[2] = taiHookFunctionImportForKernel(KERNEL_PID, &ksceKernelUnmapMemBlockRef, "SceCompat", 0x6F25E18A, 0xFFCD9B60, ksceKernelUnmapMemBlockPatched);
 	mem_hooks[3] = taiHookFunctionImportForKernel(KERNEL_PID, &SceGrabForDriver_E9C25A28_ref, "SceCompat", 0x81C54BED, 0xE9C25A28, SceGrabForDriver_E9C25A28_patched);
+
+
+	#if 1
+	inspect_thread = ksceKernelCreateThread("inspect psp memory", psp_mem_inspector, 0x10000100, 0x10000, 0, 0, NULL);
+	if (inspect_thread < 0){
+		log("%s: failed creating psp memory inspect thread, 0x%x\n", __func__, inspect_thread);
+		return;
+	}
+
+	inspect_thread_state = 1;
+	ksceKernelStartThread(inspect_thread, 0, NULL);
+	#endif
 }
 
 void term_highmem(){
