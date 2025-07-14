@@ -46,6 +46,9 @@ target_link_libraries(NoPspEmuDrm_user
 	SceKernelModulemgr_stub
 	SceRtc_stub
 	SceVshBridge_stub
+	SceKernelDmacMgr_stub
+	SceKernelThreadMgr_stub
+	SceSysmem_stub
 )
 
 

@@ -29,6 +29,7 @@
 #include <taihen.h>
 
 #include "crypto/kirk_engine.h"
+#define LOGGING_ENABLED 1
 #include "Log.h"
 #include "PspEmu.h"
 #include "PspNpDrm.h"
@@ -205,6 +206,30 @@ static SceUID sceIoOpenPatched(const char *file, int flags, SceMode mode) {
 	return TAI_CONTINUE(SceUID, sceIoOpenRef, file, flags, mode);
 }
 
+static SceUID inspect_thread = -1;
+static int inspect_thread_state = 0;
+static int pspemu_mem_inspector(unsigned int args, void *argc){
+	while(inspect_thread_state == 1){
+		sceKernelDelayThread(1000000 * 5);
+
+		#define LOG_ADDR(_addr){ \
+			uint32_t _val; \
+			int _cpy_state = sceDmacMemcpy(&_val, _addr, sizeof(_val)); \
+			log("%s: content 0x%x, 0x%x 0x%x\n", __func__, _cpy_state, _addr, _val); \
+			struct SceKernelMemBlockInfo _info = {0}; \
+			_info.size = sizeof(_info); \
+			int _get_info_state = sceKernelGetMemBlockInfoByAddr(_addr, &_info); \
+			log("%s: info 0x%x, base 0x%x size %d type 0x%x access 0x%x block type 0x%x\n", __func__, _get_info_state, _info.mappedBase, _info.mappedSize, _info.memoryType, _info.access, _info.type); \
+		}
+
+		LOG_ADDR(0x74000000);
+
+		#undef LOG_ADDR
+	}
+	inspect_thread_state = -1;
+}
+
+
 int pspemu_module_start(tai_module_info_t tai_info) {
 	SceKernelModuleInfo mod_info;
 	mod_info.size = sizeof(SceKernelModuleInfo);
@@ -232,6 +257,17 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 
 	uint32_t cmp_a3_3C00000 = 0x6fe0F1B2;
 	ram_patches[2] = taiInjectData(tai_info.modid, 0, 0x6534, &cmp_a3_3C00000, sizeof(cmp_a3_3C00000));
+
+	#if 1
+	inspect_thread = sceKernelCreateThread("inspect pspemu memory", pspemu_mem_inspector, 0x10000100, 0x10000, 0, 0, NULL);
+	if (inspect_thread < 0){
+		log("%s: failed creating psp memory inspect thread, 0x%x\n", __func__, inspect_thread);
+		return;
+	}
+
+	inspect_thread_state = 1;
+	sceKernelStartThread(inspect_thread, 0, NULL);
+	#endif
 
 	return SCE_KERNEL_START_SUCCESS;
 }

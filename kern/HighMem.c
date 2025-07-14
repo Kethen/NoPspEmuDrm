@@ -75,9 +75,11 @@ static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlock
 		} \
 	}
 
+	#if 0
 	ENLARGE_ALLOC("SceCompatCached", cached_addr_stored);
 	ENLARGE_ALLOC("SceCompatUncached", uncached_addr_stored);
 	ENLARGE_ALLOC("SceCompatCdram", cdram_addr_stored);
+	#endif
 
 	#undef ENLARGE_ALLOC
 
@@ -176,14 +178,15 @@ static int psp_mem_inspector(unsigned int args, void *argc){
 		#define LOG_BANK(_num, _addr){ \
 			uint32_t _val = 0; \
 			ksceDmacMemcpy(&_val, _addr, sizeof(uint32_t)); \
-			log("%s: bank %d: 0x%x\n", __func__, _num, _val); \
+			log("%s: bank %d (0x%x): 0x%x\n", __func__, _num, _addr, _val); \
 		}
 
+		LOG_BANK(-1, 0x20000000);
 		LOG_BANK(0, 0x21000000);
 		LOG_BANK(1, 0x22000000);
 		LOG_BANK(2, 0x23000000);
 		LOG_BANK(3, 0x24000000);
-
+		LOG_BANK(4, 0x25000000);
 
 		#define LOG_ADDR(_addr) { \
 			uint32_t _addr_test; \
@@ -196,6 +199,8 @@ static int psp_mem_inspector(unsigned int args, void *argc){
 		LOG_ADDR(0x22000000);
 		LOG_ADDR(0x23000000);
 		LOG_ADDR(0x24000000);
+		LOG_ADDR(0x25000000);
+		LOG_ADDR(0x74000000);
 	}
 	inspect_thread_state = -1;
 }
