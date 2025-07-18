@@ -42,10 +42,12 @@ int (* ScePspemuWritebackCache)(void *addr, int size);
 
 static SceUID sceIoOpenHook;
 static SceUID sceIoGetstatHook;
+static SceUID sceKernelAllocMemBlockHook;
 static SceUID ram_patches[3];
 
 static tai_hook_ref_t sceIoOpenRef;
 static tai_hook_ref_t sceIoGetstatRef;
+static tai_hook_ref_t sceKernelAllocMemBlockRef;
 
 static uint32_t npdrm_key_addr = 0;
 static char last_opened_drm_file[0x1028];
@@ -206,6 +208,21 @@ static SceUID sceIoOpenPatched(const char *file, int flags, SceMode mode) {
 	return TAI_CONTINUE(SceUID, sceIoOpenRef, file, flags, mode);
 }
 
+static SceUID sceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlockType type, int size, SceKernelAllocMemBlockOpt *optp){
+	SceUID blockid = TAI_CONTINUE(SceUID, sceKernelAllocMemBlockRef, name, type, size, optp);
+
+	uint32_t addr = 0;
+	sceKernelGetMemBlockBase(blockid, (void *)&addr);
+
+	if (optp != NULL){
+		log("%s: allocate name %s type 0x%x size %d attr 0x%x, 0x%x/0x%x\n", __func__, name, type, size, optp->attr, addr, blockid);
+	}else{
+		log("%s: allocate name %s type 0x%x size %d, 0x%x/0x%x\n", __func__, name, type, size, addr, blockid);
+	}
+	
+	return blockid;
+}
+
 static SceUID inspect_thread = -1;
 static int inspect_thread_state = 0;
 static int pspemu_mem_inspector(unsigned int args, void *argc){
@@ -220,6 +237,8 @@ static int pspemu_mem_inspector(unsigned int args, void *argc){
 			_info.size = sizeof(_info); \
 			int _get_info_state = sceKernelGetMemBlockInfoByAddr(_addr, &_info); \
 			log("%s: info 0x%x, base 0x%x size %d type 0x%x access 0x%x block type 0x%x\n", __func__, _get_info_state, _info.mappedBase, _info.mappedSize, _info.memoryType, _info.access, _info.type); \
+			SceUID memblock_id = sceKernelFindMemBlockByAddr(_info.mappedBase, _info.mappedBase); \
+			
 		}
 
 		LOG_ADDR(0x74000000);
@@ -247,6 +266,7 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 		
 	sceIoOpenHook = taiHookFunctionImport(&sceIoOpenRef, "ScePspemu", 0xCAE9ACE6, 0x6C60AC61, sceIoOpenPatched);
 	sceIoGetstatHook = taiHookFunctionImport(&sceIoGetstatRef, "ScePspemu", 0xCAE9ACE6, 0xBCA5B623, sceIoGetstatPatched);
+	sceKernelAllocMemBlockHook = taiHookFunctionImport(&sceKernelAllocMemBlockRef, "ScePspemu", 0x37FE725A, 0xB9D5EBDE, sceKernelAllocMemBlockPatched);
 
 	// Adjust RAM size the way adrenaline did
 	uint32_t cmp_a4_3C00000 = 0x6fe0F1B3;
@@ -275,6 +295,7 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 int pspemu_module_stop() {
 	if(sceIoOpenHook >= 0) taiHookRelease(sceIoOpenHook, sceIoOpenRef);
 	if(sceIoGetstatHook >= 0) taiHookRelease(sceIoGetstatHook, sceIoGetstatRef);
+	if(sceKernelAllocMemBlockHook >= 0) taiHookRelease(sceKernelAllocMemBlockHook, sceKernelAllocMemBlockRef);
 
 	for (int i = 0;i < 3;i++){
 		taiInjectRelease(ram_patches[i]);

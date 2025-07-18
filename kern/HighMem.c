@@ -97,7 +97,7 @@ static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlock
 	if (optp != NULL){
 		log("%s: allocate name %s type 0x%x size %d paddr 0x%x attr 0x%x, 0x%x/0x%x\n", __func__, name, type, size, optp->paddr, optp->attr, addr, blockid);
 	}else{
-		log("%s: allocate name %s type 0x%x size %d, 0x%d/0x%d\n", __func__, name, type, size, addr, blockid);
+		log("%s: allocate name %s type 0x%x size %d, 0x%x/0x%x\n", __func__, name, type, size, addr, blockid);
 	}
 
 	#define SAVE_ADDR(_name, _array, _counter) { \
