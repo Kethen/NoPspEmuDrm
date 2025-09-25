@@ -33,6 +33,8 @@ add_executable(${PROJECT_NAME}
 	Io.c
 	Pbp.c
 	Main.c
+
+	ps1cfw_enabler.c
 )
 
 include_directories(${CMAKE_SOURCE_DIR}/user)
@@ -52,6 +54,9 @@ target_link_libraries(${PROJECT_NAME}
 	SceKernelModulemgr_stub
 	SceRtc_stub
 	SceVshBridge_stub
+
+	SceShellSvc_stub
+	SceProcessmgr_stub
 )
 
 set_target_properties(${PROJECT_NAME}

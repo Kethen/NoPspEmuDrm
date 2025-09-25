@@ -9,6 +9,7 @@
 
 #include "PspEmu.h"
 #include "SceShell.h"
+#include "Log.h"
 
 static int patched_pspemu = 0;
 static int patched_sceshell = 0;
@@ -22,7 +23,16 @@ int module_start(SceSize args, void *argp) {
 	SceUID ret = taiGetModuleInfo("ScePspemu", &tai_info);
 	if (ret >= 0){
 		patched_pspemu = 1;
-		return pspemu_module_start(tai_info);
+		int ret = pspemu_module_start(tai_info);
+		if (ret != SCE_KERNEL_START_SUCCESS){
+			LOG("%s: failed patching pspemu, 0x%x", __func__, ret);
+			return ret;
+		}
+		ret = ps1cfw_enabler_start(tai_info);
+		if (ret != SCE_KERNEL_START_SUCCESS){
+			LOG("%s: failed starting ps1cfw_enabler, 0x%x\n", __func__, ret);
+		}
+		return ret;
 	}
 	
 	ret = taiGetModuleInfo("SceShell", &tai_info);
@@ -30,13 +40,23 @@ int module_start(SceSize args, void *argp) {
 		patched_sceshell = 1;
 		return sceshell_module_start(tai_info);
 	}
-	
-	
+
 	return SCE_KERNEL_START_NO_RESIDENT;
 }
 
 int module_stop(SceSize args, void *argp) {
-	if(patched_pspemu) return pspemu_module_stop();
+	if(patched_pspemu) {
+		int ret = ps1cfw_enabler_stop();
+		if (ret != SCE_KERNEL_STOP_SUCCESS){
+			LOG("%s: failed stopping ps1cfw_enabler, 0x%x\n", __func__, ret);
+			return ret;
+		}
+		ret = pspemu_module_stop();
+		if (ret != SCE_KERNEL_STOP_SUCCESS){
+			LOG("%s: failed stopping pspemu patches, 0x%x\n", __func__, ret);
+		}
+		return ret;
+	}
 	if(patched_sceshell) return sceshell_module_stop();
 	
 	return SCE_KERNEL_STOP_SUCCESS;
