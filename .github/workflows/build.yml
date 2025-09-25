@@ -23,18 +23,12 @@ jobs:
 
     - name: Build
       run: |
-        mkdir -p kernel_build
-        cd kernel_build
-        cmake ../kern
+        mkdir -p build
+        cd build
+        cmake ..
         make
         cp NoPspEmuDrm_kern.skprx ../
-        cd ..
-        mkdir -p user_build
-        cd user_build
-        cmake ../user
-        make
         cp NoPspEmuDrm_user.suprx ../
-        cd ..
 
     - name: Push package artifact
       uses: actions/upload-artifact@v4

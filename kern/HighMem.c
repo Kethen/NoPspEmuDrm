@@ -86,7 +86,7 @@ static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlock
 // Patch for memory block free: prevent releasing extra_1 before extra_2
 static int ksceKernelFreeMemBlockPatched(SceUID uid) {
     if (uid == extra_1_blockid) {
-        log("%s: blocked releasing of extra_1\n", __func__);
+        LOG("%s: blocked releasing of extra_1\n", __func__);
         return 0;
     }
 
@@ -96,7 +96,7 @@ static int ksceKernelFreeMemBlockPatched(SceUID uid) {
         ksceKernelFreeMemBlock(extra_1_blockid);
         extra_1_blockid = -1;
         extra_2_blockid = -1;
-        log("%s: released both extra_1 and extra_2\n", __func__);
+        LOG("%s: released both extra_1 and extra_2\n", __func__);
     }
 
     return res;
@@ -109,10 +109,10 @@ static int ksceKernelUnmapMemBlockPatched(SceUID uid) {
 
 // Patch for SceGrabForDriver_E9C25A28: override address in specific case
 static int SceGrabForDriver_E9C25A28_patched(int unk, uint32_t paddr) {
-    log("%s: %d 0x%x\n", __func__, unk, paddr);
+    LOG("%s: %d 0x%x\n", __func__, unk, paddr);
 
     if (unk == 2 && paddr == 0x21000001) {
-        log("%s: overriding address 0x%x to 0x%x\n", __func__, 0x21000001, 0x22000001);
+        LOG("%s: overriding address 0x%x to 0x%x\n", __func__, 0x21000001, 0x22000001);
         paddr = 0x22000001;
     }
 
@@ -126,29 +126,29 @@ int init_highmem() {
 
     mem_hooks[0] = taiHookFunctionImportForKernel(KERNEL_PID, &ksceKernelAllocMemBlockRef, "SceCompat", 0x6F25E18A, 0xC94850C9, ksceKernelAllocMemBlockPatched);
     if (mem_hooks[0] < 0) {
-        log("init_highmem: Failed to hook ksceKernelAllocMemBlock\n");
+        LOG("init_highmem: Failed to hook ksceKernelAllocMemBlock\n");
         result = -1;
         goto fail;
     }
     mem_hooks[1] = taiHookFunctionImportForKernel(KERNEL_PID, &ksceKernelFreeMemBlockRef, "SceCompat", 0x6F25E18A, 0x009E1C61, ksceKernelFreeMemBlockPatched);
     if (mem_hooks[1] < 0) {
-        log("init_highmem: Failed to hook ksceKernelFreeMemBlock\n");
+        LOG("init_highmem: Failed to hook ksceKernelFreeMemBlock\n");
         result = -2;
         goto fail;
     }
     mem_hooks[2] = taiHookFunctionImportForKernel(KERNEL_PID, &ksceKernelUnmapMemBlockRef, "SceCompat", 0x6F25E18A, 0xFFCD9B60, ksceKernelUnmapMemBlockPatched);
     if (mem_hooks[2] < 0) {
-        log("init_highmem: Failed to hook ksceKernelUnmapMemBlock\n");
+        LOG("init_highmem: Failed to hook ksceKernelUnmapMemBlock\n");
         result = -3;
         goto fail;
     }
     mem_hooks[3] = taiHookFunctionImportForKernel(KERNEL_PID, &SceGrabForDriver_E9C25A28_ref, "SceCompat", 0x81C54BED, 0xE9C25A28, SceGrabForDriver_E9C25A28_patched);
     if (mem_hooks[3] < 0) {
-        log("init_highmem: Failed to hook SceGrabForDriver_E9C25A28\n");
+        LOG("init_highmem: Failed to hook SceGrabForDriver_E9C25A28\n");
         result = -4;
         goto fail;
     }
-    log("init_highmem: All hooks installed successfully\n");
+    LOG("init_highmem: All hooks installed successfully\n");
     return 0;
 
 fail:
@@ -173,5 +173,5 @@ void term_highmem() {
     // Reset tracked block IDs
     extra_1_blockid = -1;
     extra_2_blockid = -1;
-    log("term_highmem: All hooks released and variables reset\n");
+    LOG("term_highmem: All hooks released and variables reset\n");
 }

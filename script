@@ -1,14 +1,7 @@
 set -xe
 
-rm -rf kernel_build
-mkdir -p kernel_build
-cd kernel_build
-cmake ../kern
-make
-cd ..
-
-rm -rf user_build
-mkdir -p user_build
-cd user_build
-cmake ../user
+rm -rf build
+mkdir build
+cd build
+cmake ..
 make
