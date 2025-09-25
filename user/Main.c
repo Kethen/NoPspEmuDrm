@@ -9,6 +9,7 @@
 
 #include "PspEmu.h"
 #include "SceShell.h"
+#define LOGGING_ENABLED 1
 #include "Log.h"
 
 static int patched_pspemu = 0;
@@ -32,6 +33,7 @@ int module_start(SceSize args, void *argp) {
 		if (ret != SCE_KERNEL_START_SUCCESS){
 			LOG("%s: failed starting ps1cfw_enabler, 0x%x\n", __func__, ret);
 		}
+		LOG("%s: pspemu patched\n", __func__);
 		return ret;
 	}
 	
@@ -55,6 +57,7 @@ int module_stop(SceSize args, void *argp) {
 		if (ret != SCE_KERNEL_STOP_SUCCESS){
 			LOG("%s: failed stopping pspemu patches, 0x%x\n", __func__, ret);
 		}
+		LOG("%s: pspemu unpatched\n", __func__);
 		return ret;
 	}
 	if(patched_sceshell) return sceshell_module_stop();
