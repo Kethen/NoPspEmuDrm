@@ -80,11 +80,13 @@ int ps1cfw_open_filter(char file[256], int *custom_ret) {
 	LOG("%s: %s\n", __func__, file);
 
 	static int first_item = 1;
-	if (first_item && strstr(file, "SCPS10084") != 0){
-		LOG("%s: first item contains SCPS10084, enabling ps1cfw path filtering and patches\n", __func__);
-		patch_and_enable();
+	if (first_item){
+		if (strstr(file, "SCPS10084") != 0){
+			LOG("%s: first item contains SCPS10084, enabling ps1cfw path filtering and patches\n", __func__);
+			patch_and_enable();
+		}
+		first_item = 0;
 	}
-	first_item = 0;
 
 	if (!enabled){
 		return 0;
