@@ -9,7 +9,6 @@
 
 #include "PspEmu.h"
 #include "SceShell.h"
-#define LOGGING_ENABLED 1
 #include "Log.h"
 
 static int patched_pspemu = 0;
