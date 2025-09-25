@@ -1,4 +1,4 @@
-// obtained from https://github.com/PSP-Archive/ARK-4/blob/main/loader/live/kernel/psxloader/ps1cfw_enabler/ps1cfw_enabler.c
+// adapted from https://github.com/PSP-Archive/ARK-4/blob/main/loader/live/kernel/psxloader/ps1cfw_enabler/ps1cfw_enabler.c
 
 #include <taihen.h>
 #include <vitasdk.h>
@@ -8,7 +8,6 @@
 
 #define SCE_PSPEMU_CACHE_NONE 0x1
 
-static tai_module_info_t info;
 static uint32_t module_nid;
 
 static SceUID sceIoOpenHook = -1;
@@ -56,119 +55,122 @@ static void get_functions(uint32_t text_addr) {
 }
 
 // IO Open patched
-static SceUID sceIoOpenPatched(const char *file, int flags, SceMode mode) {
+int ps1cfw_open_filter(char file[256], int *custom_ret) {
+	LOG("%s: %s\n", __func__, file);
+
+	// Virtual Kernel Exploit (allow easy escalation of priviledge on ePSP)
+	if (strstr(file, "__dokxploit__") != 0){
+		uint32_t *m;
+
+		// remove k1 checks in IoRead (lets you write into kram)
+		m = (uint32_t *)ScePspemuConvertAddress(0x8805769C, SCE_PSPEMU_CACHE_NONE, 4);
+		*m = mips_move_a2_0; // move $a2, 0
+		ScePspemuWritebackCache(m, 4);
+
+		// remove k1 checks in IoWrite (lets you read kram)
+		m = (uint32_t *)ScePspemuConvertAddress(0x880577B0, SCE_PSPEMU_CACHE_NONE, 4);
+		*m = mips_move_a2_0; // move $a2, 0
+		ScePspemuWritebackCache(m, 4);
+
+		// allow running any code as kernel (lets us pass function pointer as second argument of libctime)
+		m = (uint32_t *)ScePspemuConvertAddress((module_nid==0x2714F07D)?0x88010044:0x8800FFB4, SCE_PSPEMU_CACHE_NONE, 4);
+		*m = mips_nop; // nop
+		ScePspemuWritebackCache(m, 4);
+		*custom_ret = 0;
+		return 1;
+	}
   
-    if (file == NULL) return -1;
+	// Configure currently loaded game
+	char* popsetup = strstr(file, "__popsconfig__");
+	if (popsetup){
+		char* title_id = strchr(popsetup, '/') + 1;
+		char* path = strchr(title_id, '/');
+		strncpy(popsconfig.title_id, title_id, (path-title_id));
+		strcpy(popsconfig.path, path);
+		popsconfig.magic = ARK_MAGIC;
+		*custom_ret = -101;
+		return 1;
+	}
 
-    // Virtual Kernel Exploit (allow easy escalation of priviledge on ePSP)
-    if (strstr(file, "__dokxploit__") != 0){
-        uint32_t *m;
-        
-        // remove k1 checks in IoRead (lets you write into kram)
-        m = (uint32_t *)ScePspemuConvertAddress(0x8805769C, SCE_PSPEMU_CACHE_NONE, 4);
-        *m = mips_move_a2_0; // move $a2, 0
-        ScePspemuWritebackCache(m, 4);
-
-        // remove k1 checks in IoWrite (lets you read kram)
-        m = (uint32_t *)ScePspemuConvertAddress(0x880577B0, SCE_PSPEMU_CACHE_NONE, 4);
-        *m = mips_move_a2_0; // move $a2, 0
-        ScePspemuWritebackCache(m, 4);
-
-        // allow running any code as kernel (lets us pass function pointer as second argument of libctime)
-        m = (uint32_t *)ScePspemuConvertAddress((module_nid==0x2714F07D)?0x88010044:0x8800FFB4, SCE_PSPEMU_CACHE_NONE, 4);
-        *m = mips_nop; // nop
-        ScePspemuWritebackCache(m, 4);
-        return 0;
-    }
-  
-    // Configure currently loaded game
-    char* popsetup = strstr(file, "__popsconfig__");
-    if (popsetup){
-        char* title_id = strchr(popsetup, '/') + 1;
-        char* path = strchr(title_id, '/');
-        strncpy(popsconfig.title_id, title_id, (path-title_id));
-        strcpy(popsconfig.path, path);
-        popsconfig.magic = ARK_MAGIC;
-        return -101;
-    }
-
-    // Clear configuration 
-    if (strstr(file, "__popsclear__")){
-        memset(&popsconfig, 0, sizeof(PopsConfig));
-        return -102;
-    }
+	// Clear configuration
+	if (strstr(file, "__popsclear__")){
+	memset(&popsconfig, 0, sizeof(PopsConfig));
+		*custom_ret = -102;
+		return 1;
+	}
     
-    // Handle when system has booted
-    if (strstr(file, "__popsbooted__")){
-        sceShellUtilUnlock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN);
-        sceShellUtilUnlock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2);
-        sceKernelPowerUnlock(0);
-        return -103;
-    }
+	// Handle when system has booted
+	if (strstr(file, "__popsbooted__")){
+		sceShellUtilUnlock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN);
+		sceShellUtilUnlock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2);
+		sceKernelPowerUnlock(0);
+		*custom_ret = -103;
+		return 1;
+	}
     
-    // Pause POPS
-    if (strstr(file, "__popspause__")){
-        ScePspemuPausePops(1);
-        sceDisplayWaitVblankStart();
-        return -104;
-    }
+	// Pause POPS
+	if (strstr(file, "__popspause__")){
+		ScePspemuPausePops(1);
+		sceDisplayWaitVblankStart();
+		*custom_ret = -104;
+		return 1;
+	}
     
-    // Resume POPS
-    if (strstr(file, "__popsresume__")){
-        ScePspemuPausePops(0);
-        sceDisplayWaitVblankStart();
-        return -105;
-    }
+	// Resume POPS
+	if (strstr(file, "__popsresume__")){
+		ScePspemuPausePops(0);
+		sceDisplayWaitVblankStart();
+		*custom_ret = -105;
+		return 1;
+	}
     
-    // Clean Exit
-    if (strstr(file, "__popsexit__")){
-        return ScePspemuErrorExit(0);
-    }
+	// Clean Exit
+	if (strstr(file, "__popsexit__")){
+		*custom_ret = ScePspemuErrorExit(0);
+		return 1;
+	}
 
-    // Redirect files for memory card manager
-    if (popsconfig.magic == ARK_MAGIC && popsconfig.title_id[0] && popsconfig.path[0]){
-      char *p = strrchr(file, '/');
-      if (p) {
-        static char new_file[256];
+	// Redirect files for memory card manager
+	if (popsconfig.magic == ARK_MAGIC && popsconfig.title_id[0] && popsconfig.path[0]){
+		char *p = strrchr(file, '/');
+		if (p) {
+			if (strcmp(p+1, "__sce_menuinfo") == 0) {
+				char *filename = popsconfig.path;
+				char *q = strrchr(filename, '/');
+				if (q) {
+					char path[128];
+					strncpy(path, filename, q-(filename));
+					path[q-filename] = '\0';
 
-        if (strcmp(p+1, "__sce_menuinfo") == 0) {
-          char *filename = popsconfig.path;
-          char *q = strrchr(filename, '/');
-          if (q) {
-            char path[128];
-            strncpy(path, filename, q-(filename));
-            path[q-filename] = '\0';
-
-            snprintf(new_file, sizeof(new_file), "ms0:%s/__sce_menuinfo", path);
-            file = new_file;
-          }
-        } else if (strstr(file, "/SCPS10084/") &&
-                  (strcmp(p+1, "PARAM.SFO") == 0 ||
-                   strcmp(p+1, "SCEVMC0.VMP") == 0 ||
-                   strcmp(p+1, "SCEVMC1.VMP") == 0)) {
-          snprintf(new_file, sizeof(new_file), "ms0:PSP/SAVEDATA/%s/%s", popsconfig.title_id, p+1);
-          file = new_file;
-        }
-      }
-    }
-    return TAI_CONTINUE(SceUID, sceIoOpenRef, file, flags, mode);
+					snprintf(file, 256, "ms0:%s/__sce_menuinfo", path);
+				}
+			} else if (strstr(file, "/SCPS10084/") &&
+				(strcmp(p+1, "PARAM.SFO") == 0 ||
+				strcmp(p+1, "SCEVMC0.VMP") == 0 ||
+				strcmp(p+1, "SCEVMC1.VMP") == 0))
+			{
+				snprintf(file, 256, "ms0:PSP/SAVEDATA/%s/%s", popsconfig.title_id, p+1);
+			}
+		}
+	}
+	return 0;
 }
 
-static int sceIoGetstatPatched(const char *file, SceIoStat *stat) {
-  if (popsconfig.magic == ARK_MAGIC && popsconfig.title_id[0] && popsconfig.path[0]){
-      char *p = strrchr(file, '/');
-      if (p) {
-        static char new_file[256];
-        if (strstr(file, "/SCPS10084/") &&
-           (strcmp(p+1, "PARAM.SFO") == 0 ||
-            strcmp(p+1, "SCEVMC0.VMP") == 0 ||
-            strcmp(p+1, "SCEVMC1.VMP") == 0)) {
-          snprintf(new_file, sizeof(new_file), "ms0:PSP/SAVEDATA/%s/%s", popsconfig.title_id, p+1);
-          file = new_file;
-        }
-      }
-  }
-  return TAI_CONTINUE(int, sceIoGetstatRef, file, stat);
+void ps1cfw_getstat_filter(char file[256]) {
+	LOG("%s: %s\n", __func__, file);
+
+	if (popsconfig.magic == ARK_MAGIC && popsconfig.title_id[0] && popsconfig.path[0]){
+		char *p = strrchr(file, '/');
+		if (p) {
+			if (strstr(file, "/SCPS10084/") &&
+				(strcmp(p+1, "PARAM.SFO") == 0 ||
+				strcmp(p+1, "SCEVMC0.VMP") == 0 ||
+				strcmp(p+1, "SCEVMC1.VMP") == 0))
+			{
+				snprintf(file, 256, "ms0:PSP/SAVEDATA/%s/%s", popsconfig.title_id, p+1);
+			}
+		}
+	}
 }
 
 int ps1cfw_enabler_start(tai_module_info_t tai_info) {
@@ -178,25 +180,19 @@ int ps1cfw_enabler_start(tai_module_info_t tai_info) {
     mod_info.size = sizeof(SceKernelModuleInfo);
     int ret = sceKernelGetModuleInfo(tai_info.modid, &mod_info);
     
-    module_nid = info.module_nid;
+    module_nid = tai_info.module_nid;
 
     // Get PspEmu functions
     get_functions((uint32_t)mod_info.segments[0].vaddr);
 
     // allow opening any path
-    io_patch_path = taiInjectData(info.modid, 0x00, 0x839C, &nop_nop_opcode, 0x4);
+    io_patch_path = taiInjectData(tai_info.modid, 0x00, 0x839C, &nop_nop_opcode, 0x4);
 
     // allow opening files of any size
-    io_patch_size = taiInjectData(info.modid, 0x00, 0xA13C, &mov_r2_r4_mov_r4_r2, 0x4);
-
-    // patch ioOpen for various functions
-    sceIoOpenHook = taiHookFunctionImport(&sceIoOpenRef, "ScePspemu", 0xCAE9ACE6, 0x6C60AC61, sceIoOpenPatched);
-
-    // fix memory card manager
-    sceIoStatHook = taiHookFunctionImport(&sceIoGetstatRef, "ScePspemu", 0xCAE9ACE6, 0xBCA5B623, sceIoGetstatPatched);
+    io_patch_size = taiInjectData(tai_info.modid, 0x00, 0xA13C, &mov_r2_r4_mov_r4_r2, 0x4);
 
     // fix controller on Vita TV
-    ctrl_patch = taiInjectData(info.modid, 0, (module_nid == 0x2714F07D)?0x2073C:0x20740, &movs_a1_0_nop_opcode, sizeof(movs_a1_0_nop_opcode));
+    ctrl_patch = taiInjectData(tai_info.modid, 0, (module_nid == 0x2714F07D)?0x2073C:0x20740, &movs_a1_0_nop_opcode, sizeof(movs_a1_0_nop_opcode));
 
     return SCE_KERNEL_START_SUCCESS;
 }
