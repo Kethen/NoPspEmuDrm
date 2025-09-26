@@ -10,6 +10,7 @@
 #include "PspEmu.h"
 #include "SceShell.h"
 #include "Log.h"
+#include "ps1cfw_enabler.h"
 
 static int patched_pspemu = 0;
 static int patched_sceshell = 0;

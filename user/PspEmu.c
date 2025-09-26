@@ -78,6 +78,7 @@
 #include "PspEmu.h"
 #include "PspNpDrm.h"
 #include "Io.h"
+#include "ps1cfw_enabler.h"
 
 #define IS_RIF_PATH(x) (strncmp(x, "ms0:PSP/LICENSE/", 16) == 0 || strncmp(x, "ms0:/PSP/LICENSE/", 17) == 0)
 

@@ -2,16 +2,14 @@
 
 #include <taihen.h>
 #include <vitasdk.h>
+
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "Log.h"
 
 #define SCE_PSPEMU_CACHE_NONE 0x1
-
-static SceUID sceIoOpenHook = -1;
-static SceUID sceIoStatHook = -1;
-static tai_hook_ref_t sceIoOpenRef;
-static tai_hook_ref_t sceIoGetstatRef;
 
 static SceUID io_patch_path = -1;
 static SceUID io_patch_size = -1;
@@ -221,8 +219,6 @@ int ps1cfw_enabler_start(tai_module_info_t tai_info) {
 
 int ps1cfw_enabler_stop() {
 
-  if (sceIoOpenHook >= 0) taiHookRelease(sceIoOpenHook, sceIoOpenRef);
-  if (sceIoStatHook >= 0) taiHookRelease(sceIoStatHook, sceIoGetstatRef);
   if (io_patch_path >= 0) taiInjectRelease(io_patch_path);
   if (io_patch_size >= 0) taiInjectRelease(io_patch_size);
   if (ctrl_patch    >= 0) taiInjectRelease(ctrl_patch);
